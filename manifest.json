@@ -1,0 +1,30 @@
+{
+    "background": { "scripts": ["browser.js"], "persistent":false },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*",
+                "https://*/*"
+            ],
+            "js": [
+                "content_script.js",
+				"jquery.min.js",
+				"fileSaver.js"
+            ]
+        }
+    ],
+    "default_locale": "en_US",
+    "name": "HumaBird Project : News Story download",
+    "browser_action": {
+        "default_title": "HumaBird Project : News Story download"    
+    },
+    "permissions": [
+        "tabs",
+        "<all_urls>",
+        "http://*/",
+        "https://*/"
+    ],
+    "content_security_policy": "script-src 'self'; object-src 'self'",
+    "manifest_version": 2,
+    "version": "0.1"
+}
