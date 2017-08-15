@@ -1,4 +1,11 @@
-
+var stop = false;
+var counter = 1;
+var urls_found = new Array();
+var all_urls = new Array();
+var base = "";
+var urls_counter = 0;
+var urls_total = 0;
+var start = 0;
 
 chrome.extension.onMessage.addListener(
 	 
@@ -14,14 +21,38 @@ chrome.extension.onMessage.addListener(
 		
 		if(request.command=="output"){
 			
+			counter++;
+				
+			start = parseInt(GetURLParameter("start"));
+
+			if(isNaN(start)){
+				start = 0;
+			}
+					
+			chrome.extension.sendMessage({command: "data", message: "Getting URL Number " + (start + counter)}, function(response) {
+
+			});
+			
+			chrome.extension.sendMessage({command: "status", message: "Saving URL Number " + (counter) + " out of " + urls_total}, function(response) {
+
+			});
+			
 			output(request);
 			
 		}
 		
 		if(request.command=="restart"){
-	
-			parse_document();
+		
+			if(!stop){
+				chrome.extension.sendMessage({command:"status",message:"Moving to next set of Google Results"},function(){});
+				parse_document();
+			}
 			
+		}
+		
+		if(request.command=="stop"){
+			console.log("stop set");
+			stop = true;
 		}
 		
 	}     
@@ -30,23 +61,22 @@ chrome.extension.onMessage.addListener(
 
 function output(request){
 	
-	filename = request.extra.date + "_" + request.extra.title + "_" + request.extra.link;
+	filename = request.extra.date + "_" + request.extra.link + "_" + request.extra.title;
 	
 	var blob = new Blob([request.extra.link + "\n\n\n" + request.output], {type: "text/plain;charset=utf-8"});	
 	saveAs(blob, filename + ".txt");
 	
 	urls_counter-=1;
 	
-	console.log(urls_counter);
-	
 	if(urls_counter<=0){
-		next_page();
+		if(!stop){
+			next_page();
+		}else{
+			chrome.extension.sendMessage({command:"status",message:"Stopped"},function(){});
+		}
 	}
 	
 }
-
-var urls_found = new Array();
-var all_urls = new Array();
 
 function check_url(url) {
 
@@ -54,8 +84,6 @@ function check_url(url) {
 
 }
 
-var base = "";
-var urls_counter = 0;
 
 function GetURLParameter(sParam){
 
@@ -80,7 +108,6 @@ function next_page(){
 		start = 10;
 		window.location.href = window.location.href + "&start=" + start;
 	}else{
-		
 		start = parseInt(start) + 10;
 		var sPageURL = window.location.search.substring(1);
 		var sURLVariables = sPageURL.split('&');
@@ -91,11 +118,11 @@ function next_page(){
 			if (sParameterName[0] == "start"){
 				sParameterName[1] = start;
 			}
-			url += "&" + sParameterName[0] + "=" + sParameterName[1];
+			if (sParameterName[0] != "q"){
+				url += "&" + sParameterName[0] + "=" + sParameterName[1];
+			}
 			window.location.href = url;
 		}
-		
-		console.log(url);
 		
 	}
 	
@@ -133,32 +160,38 @@ function parse_document(){
 								
 								date = "00000000"
 								
-								if(n.parentNode.nextSibling.firstChild.firstChild.nextSibling!=null){
-									date = n.parentNode.nextSibling.firstChild.firstChild.nextSibling.firstChild.innerHTML;
-									if(date!=undefined){
-										date = date.split("-").join("");
-										date = date.split(" ");
-										month = "";
-										switch(date[1]){
-											case "Jan": month = "01"; break;
-											case "Feb": month = "02"; break;
-											case "Mar": month = "03"; break;
-											case "Apr": month = "04"; break;
-											case "May": month = "05"; break;
-											case "Jun": month = "06"; break;
-											case "Jul": month = "07"; break;
-											case "Aug": month = "08"; break;
-											case "Sep": month = "09"; break;
-											case "Oct": month = "10"; break;
-											case "Nov": month = "11"; break;
-											case "Dec": month = "12"; break;
+								if(n.parentNode.nextSibling!=null){
+									if(n.parentNode.nextSibling.firstChild!=null){
+										if(n.parentNode.nextSibling.firstChild.firstChild!=null){
+											if(n.parentNode.nextSibling.firstChild.firstChild.nextSibling!=null){
+												date = n.parentNode.nextSibling.firstChild.firstChild.nextSibling.firstChild.innerHTML;
+												if(date!=undefined){
+													date = date.split("-").join("");
+													date = date.split(" ");
+													month = "";
+													switch(date[1]){
+														case "Jan": month = "01"; break;
+														case "Feb": month = "02"; break;
+														case "Mar": month = "03"; break;
+														case "Apr": month = "04"; break;
+														case "May": month = "05"; break;
+														case "Jun": month = "06"; break;
+														case "Jul": month = "07"; break;
+														case "Aug": month = "08"; break;
+														case "Sep": month = "09"; break;
+														case "Oct": month = "10"; break;
+														case "Nov": month = "11"; break;
+														case "Dec": month = "12"; break;
+													}
+													
+													if(date[0].length==1){
+														date[0] = "0" + date[0];
+													}
+													
+													date = date[2] + month + date[0];
+												}	
+											}
 										}
-										
-										if(date[0].length==1){
-											date[0] = "0" + date[0];
-										}
-										
-										date = date[2] + month + date[0];
 									}
 								}
 								
@@ -200,9 +233,12 @@ function parse_document(){
 	}
 	
 	urls_counter = urls_found.length;
-	
+	urls_total = urls_found.length;
+
 	for(url in urls_found){
-		check_url(urls_found[url]);
+		if(!stop){
+			check_url(urls_found[url]);
+		}
 	}
 			
 	urls_found = new Array();

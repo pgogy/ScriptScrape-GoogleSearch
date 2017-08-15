@@ -1,31 +1,40 @@
-chrome.browserAction.onClicked.addListener(function(tab_something) {
-
-	chrome.tabs.getSelected(null, function(tab) {
-					
-		chrome.tabs.sendMessage(tab.id, {command: "parse"}, function(response) {
-		
-		
-		});
-		
-	});
-							
-});
-
+var tabID = "";
 var nextURL = "";
+var counter = 1;
+var started = false;
+var stop = false;
 
 chrome.tabs.onUpdated.addListener(
   function(tabId, changeInfo, tab) {
   
-	if(started){
+	tabID = tabId;
   
-		if(changeInfo.status=="loading"){
-			nextURL = changeInfo.url;
-		}
-		if(changeInfo.status=="complete"){
-			chrome.tabs.sendMessage(tabId, {command: "restart"}, function(response) {
+	if(started){
+	
+		if(!stop){
+  
+			if(changeInfo.status=="loading"){
+				nextURL = changeInfo.url;
+			}
+			if(changeInfo.status=="complete"){
 			
+				chrome.extension.sendMessage({command: "status", message: "Changing page"}, function(response) {
+
+				}); 
 			
-			});
+				chrome.tabs.sendMessage(tabID, {command: "restart"}, function(response) {
+				
+				
+				});
+				
+			}
+			
+		}else{
+		
+			chrome.extension.sendMessage({command: "status", message: "Stopped"}, function(response) {
+
+				}); 
+		
 		}
 		
 	}
@@ -33,9 +42,32 @@ chrome.tabs.onUpdated.addListener(
   }
 );
 
-var started = false;
-
 chrome.extension.onMessage.addListener(function(request, sender, sendResponse) {
+	
+	if(request.command=="parse"){
+		console.log("sending parse");
+		chrome.tabs.getSelected(null, function(tab) {
+				
+			chrome.tabs.sendMessage(tabID, {command: "parse"}, function(response) {
+			
+			
+			});
+			
+		});
+	}
+	
+	if(request.command=="stop"){
+		console.log("sending stop");
+		stop = true;
+		chrome.tabs.getSelected(null, function(tab) {
+				
+			chrome.tabs.sendMessage(tabID, {command: "stop"}, function(response) {
+			
+			
+			});
+			
+		});
+	}
 	
 	if(request.command=="ajax"){
 	
@@ -47,9 +79,13 @@ chrome.extension.onMessage.addListener(function(request, sender, sendResponse) {
 																
 		xmlHttpRequest.open("GET",url,true);
 		xmlHttpRequest.onreadystatechange=function(){
-		  
+				
 			if (xmlHttpRequest.readyState==4){
-													
+				
+				chrome.extension.sendMessage({command: "status", message: "Getting URLs"}, function(response) {
+
+				});
+								
 				response = xmlHttpRequest.responseText;
 				
 				var div = document.createElement('div');
@@ -73,7 +109,7 @@ chrome.extension.onMessage.addListener(function(request, sender, sendResponse) {
 				
 				chrome.tabs.getSelected(null, function(tab) {
 				
-					chrome.tabs.sendMessage(tab.id, {command: "output",output:text,url:url,extra:request.link}, function(response) {
+					chrome.tabs.sendMessage(tabID, {command: "output",output:text,url:url,extra:request.link}, function(response) {
 					
 					
 					});
